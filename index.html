@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090b0f">
+  <meta name="description" content="Browserbasiertes OBJ- und Texturemap-Studio mit UV-Atlas, 3D-Painting und AI-Exporten.">
+  <title>TextureMap Studio</title>
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body data-view="split">
+  <header class="topbar">
+    <div class="brand" aria-label="TextureMap Studio">
+      <div class="brand-mark">TM</div>
+      <div><strong>TextureMap</strong><span>Studio</span></div>
+    </div>
+    <div class="top-actions">
+      <div class="menu-wrap">
+        <button class="button primary" id="importToggle" aria-haspopup="true" aria-expanded="false">＋ Importieren</button>
+        <div class="menu" id="importMenu" hidden>
+          <label for="objFile"><b>3D-Modell</b><span>Wavefront OBJ</span></label>
+          <label for="imgFile"><b>Texturemap</b><span>PNG, JPG, WebP</span></label>
+          <label for="projectFile"><b>Projekt</b><span>.tms.json</span></label>
+          <label for="paletteFile"><b>Farbpalette</b><span>GPL, TXT, HEX</span></label>
+        </div>
+      </div>
+      <input id="objFile" type="file" accept=".obj,text/plain">
+      <input id="imgFile" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+      <input id="projectFile" type="file" accept=".json,.tms,application/json">
+      <input id="paletteFile" type="file" accept=".gpl,.txt,text/plain">
+      <div class="top-separator"></div>
+      <button class="icon-button" id="undoBtn" title="Rückgängig (Ctrl/Cmd+Z)">↶</button>
+      <button class="icon-button" id="redoBtn" title="Wiederholen (Shift+Ctrl/Cmd+Z)">↷</button>
+      <button class="button" id="saveProject">Projekt speichern</button>
+      <button class="button accent" id="exportToggle">Exportieren ↗</button>
+    </div>
+    <div class="project-meta">
+      <span class="saved-dot" id="savedDot"></span>
+      <span id="projectName">Unbenanntes Projekt</span>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <nav class="toolrail" aria-label="Werkzeuge">
+      <div class="rail-group">
+        <button class="tool active" data-tool="brush" title="Pinsel (B)"><span>●</span><em>Pinsel</em></button>
+        <button class="tool" data-tool="pencil" title="Stift (P)"><span>✎</span><em>Stift</em></button>
+        <button class="tool" data-tool="eraser" title="Radierer (E)"><span>◇</span><em>Radierer</em></button>
+        <button class="tool" data-tool="fill" title="Füllen (F)"><span>▰</span><em>Füllen</em></button>
+        <button class="tool" data-tool="picker" title="Pipette (I)"><span>⌾</span><em>Pipette</em></button>
+        <button class="tool" data-tool="spray" title="Spray (S)"><span>⁙</span><em>Spray</em></button>
+      </div>
+      <div class="rail-divider"></div>
+      <div class="rail-group">
+        <button class="tool" data-tool="line" title="Linie (L)"><span>╱</span><em>Linie</em></button>
+        <button class="tool" data-tool="rect" title="Rechteck (R)"><span>□</span><em>Rechteck</em></button>
+        <button class="tool" data-tool="ellipse" title="Ellipse (O)"><span>○</span><em>Ellipse</em></button>
+        <button class="tool" data-tool="gradient" title="Verlauf (G)"><span>◒</span><em>Verlauf</em></button>
+        <button class="tool" data-tool="text" title="Text (T)"><span>T</span><em>Text</em></button>
+      </div>
+      <button class="tool help-tool" id="shortcutsButton" title="Tastenkürzel"><span>?</span><em>Hilfe</em></button>
+    </nav>
+
+    <aside class="inspector">
+      <div class="inspector-heading">
+        <div><span>Eigenschaften</span><strong id="activeToolName">Pinsel</strong></div>
+        <span class="live-pill">LIVE</span>
+      </div>
+
+      <details open>
+        <summary>Farbe & Pinsel</summary>
+        <div class="panel-content">
+          <div class="color-row">
+            <input id="brushColor" type="color" value="#ff5c35" aria-label="Pinselfarbe">
+            <input id="colorHex" value="#FF5C35" maxlength="7" aria-label="Hex-Farbwert">
+          </div>
+          <div class="swatches" id="swatches"></div>
+          <label class="slider-row"><span>Größe</span><input id="brushSize" type="range" min="1" max="200" value="32"><output id="brushSizeVal">32</output></label>
+          <label class="slider-row"><span>Deckkraft</span><input id="brushOpacity" type="range" min="1" max="100" value="100"><output id="brushOpacityVal">100%</output></label>
+          <label class="slider-row"><span>Härte</span><input id="brushHardness" type="range" min="0" max="100" value="85"><output id="brushHardnessVal">85%</output></label>
+          <label class="slider-row"><span>Fill-Toleranz</span><input id="fillTolerance" type="range" min="0" max="100" value="12"><output id="fillToleranceVal">12</output></label>
+          <label class="check-row"><input id="shapeFill" type="checkbox"><span>Formen füllen</span></label>
+        </div>
+      </details>
+
+      <details>
+        <summary>Text</summary>
+        <div class="panel-content">
+          <textarea id="textInput" rows="3" placeholder="Text eingeben…">Hello</textarea>
+          <div class="field-grid">
+            <label><span>Schrift</span><select id="fontFamily"><option>Inter</option><option>Arial</option><option>Verdana</option><option>Georgia</option><option>Courier New</option></select></label>
+            <label><span>Größe</span><input id="textSize" type="range" min="8" max="256" value="72"><output id="textSizeVal">72</output></label>
+            <label><span>Winkel</span><input id="textAngle" type="range" min="-180" max="180" value="0"><output id="textAngleVal">0°</output></label>
+          </div>
+          <div class="toggle-grid">
+            <label><input id="textBold" type="checkbox"><span>Fett</span></label>
+            <label><input id="textItalic" type="checkbox"><span>Kursiv</span></label>
+            <label><input id="textOutline" type="checkbox"><span>Kontur</span></label>
+            <label><input id="textFlipX" type="checkbox"><span>Flip X</span></label>
+            <label><input id="textFlipY" type="checkbox"><span>Flip Y</span></label>
+          </div>
+        </div>
+      </details>
+
+      <details open>
+        <summary>UV & Modell</summary>
+        <div class="panel-content">
+          <div class="metric-card"><span id="uvModeBadge">Flächen-Atlas: —</span><small id="meshInfo">Noch kein Modell geladen</small></div>
+          <button class="button wide" id="repairFaceIslandsBtn">UV-Atlas neu berechnen</button>
+          <label class="check-row"><input id="showUV" type="checkbox" checked><span>UV-Wireframe anzeigen</span></label>
+          <label class="check-row"><input id="paint3D" type="checkbox" checked><span>Direkt auf 3D malen</span></label>
+          <label class="check-row"><input id="seamSafe" type="checkbox" checked><span>Seam-Safe Painting</span></label>
+          <label class="check-row"><input id="backfacePaint" type="checkbox"><span>Rückseiten bemalen</span></label>
+          <button class="button wide subtle" id="resetView">Kamera zurücksetzen</button>
+        </div>
+      </details>
+
+      <details>
+        <summary>Dokument</summary>
+        <div class="panel-content">
+          <label class="select-row"><span>Auflösung</span><select id="texSize"><option>512</option><option selected>1024</option><option>2048</option><option>4096</option></select></label>
+          <div class="two-buttons"><button class="button" id="newTex">Neue Textur</button><button class="button danger-soft" id="clearBtn">Leeren</button></div>
+          <p class="hint">Alt/Rechtsklick: Drehen · Shift/Mittelklick: Verschieben · Mausrad: Zoom</p>
+        </div>
+      </details>
+    </aside>
+
+    <section class="workspace">
+      <div class="viewbar">
+        <div class="segmented" role="tablist" aria-label="Ansicht">
+          <button data-view="split" class="active">Geteilt</button>
+          <button data-view="model">3D</button>
+          <button data-view="texture">Texturemap</button>
+          <button data-view="ai">AI Prep</button>
+        </div>
+        <div class="view-tools">
+          <span class="badge" id="zoomLabel">100%</span>
+          <button class="icon-button" id="fitTexture" title="Texturemap einpassen">⌗</button>
+          <button class="icon-button" id="fullscreenButton" title="Vollbild">⛶</button>
+        </div>
+      </div>
+
+      <div class="stage-grid">
+        <section id="viewPane" class="pane model-pane">
+          <div class="pane-label"><span class="dot coral"></span>3D Viewport</div>
+          <canvas id="glcanvas"></canvas>
+          <div class="empty-state" id="modelEmpty">
+            <div class="empty-icon">OBJ</div>
+            <h2>Zieh dein Modell hierher</h2>
+            <p>OBJ-Dateien werden lokal verarbeitet und automatisch in einen flächenbasierten UV-Atlas abgewickelt.</p>
+            <label class="button primary" for="objFile">OBJ auswählen</label>
+          </div>
+          <div class="viewport-hud"><span>LMB Paint</span><span>Alt Orbit</span><span>Shift Pan</span><span>Wheel Zoom</span></div>
+        </section>
+
+        <section id="uvPane" class="pane texture-pane">
+          <div class="pane-label"><span class="dot blue"></span><span id="texturePaneTitle">Texturemap</span><span id="textureDimensions">1024 × 1024</span></div>
+          <div class="canvasWrap" id="canvasWrap">
+            <div id="uvStage">
+              <canvas id="texcanvas" width="1024" height="1024"></canvas>
+              <canvas id="uvOverlay" width="1024" height="1024"></canvas>
+            </div>
+          </div>
+          <div class="ai-toolbar" id="aiToolbar">
+            <div><strong>AI Texture Prep</strong><span>Referenzen für Image-to-Image vorbereiten</span></div>
+            <label class="check-row compact"><input id="aiIncludeTexture" type="checkbox" checked><span>Textur</span></label>
+            <label class="check-row compact"><input id="aiIncludeUV" type="checkbox" checked><span>UV-Linien</span></label>
+            <label class="check-row compact"><input id="aiLabels" type="checkbox"><span>Insel-Farben</span></label>
+            <button class="button accent" id="exportAiSheet">AI Sheet exportieren</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <div><span class="status-light"></span><span id="status">Bereit — OBJ laden oder direkt eine Texturemap importieren.</span></div>
+    <div class="status-meta"><span>WebGL</span><span>Lokale Verarbeitung</span><span id="autosaveState">Autosave aktiv</span></div>
+  </footer>
+
+  <aside class="export-drawer" id="exportDrawer" aria-hidden="true">
+    <div class="drawer-head"><div><span>Export Center</span><h2>Deine Assets</h2></div><button class="icon-button" id="exportClose">×</button></div>
+    <div class="drawer-scroll">
+      <section class="export-section">
+        <h3>Texturemap</h3>
+        <label class="select-row"><span>Format</span><select id="imageFormat"><option value="image/png">PNG</option><option value="image/jpeg">JPG</option><option value="image/webp">WebP</option></select></label>
+        <label class="slider-row"><span>Qualität</span><input id="imageQuality" type="range" min="50" max="100" value="92"><output id="imageQualityValue">92%</output></label>
+        <button class="export-card" id="saveImage"><span>▣</span><div><b>Finale Texturemap</b><small>Saubere Textur ohne Hilfslinien</small></div><em>↗</em></button>
+        <button class="export-card" id="saveUvGuide"><span>⌗</span><div><b>UV Guide</b><small>Wireframe als AI-Referenz</small></div><em>↗</em></button>
+        <button class="export-card" id="saveIslandMask"><span>◫</span><div><b>Island ID Mask</b><small>Farbkodierte UV-Inseln</small></div><em>↗</em></button>
+        <button class="export-card featured" id="saveContactSheet"><span>AI</span><div><b>AI Reference Sheet</b><small>Textur, UV, Mask und 3D-Ansicht</small></div><em>↗</em></button>
+      </section>
+      <section class="export-section">
+        <h3>3D-Paket</h3>
+        <button class="export-card" id="saveAll"><span>3D</span><div><b>Komplettes OBJ-Paket</b><small>OBJ + MTL + PNG</small></div><em>3 Dateien</em></button>
+        <div class="mini-export-grid"><button id="saveObj">OBJ</button><button id="saveMtl">MTL</button><button id="savePng">PNG</button></div>
+      </section>
+      <section class="export-section">
+        <h3>Projekt & AI</h3>
+        <button class="export-card" id="saveProjectDrawer"><span>{ }</span><div><b>Projektdatei</b><small>Textur, Modell und Einstellungen</small></div><em>↗</em></button>
+        <button class="export-card" id="savePrompt"><span>✦</span><div><b>AI Prompt Brief</b><small>Map-Regeln und Modell-Metadaten</small></div><em>TXT</em></button>
+      </section>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <dialog id="shortcutsDialog">
+    <div class="dialog-head"><h2>Tastenkürzel</h2><button class="icon-button" data-close-dialog>×</button></div>
+    <div class="shortcut-grid">
+      <span>Pinsel</span><kbd>B</kbd><span>Stift</span><kbd>P</kbd><span>Radierer</span><kbd>E</kbd><span>Füllen</span><kbd>F</kbd>
+      <span>Pipette</span><kbd>I</kbd><span>Spray</span><kbd>S</kbd><span>Linie</span><kbd>L</kbd><span>Text</span><kbd>T</kbd>
+      <span>Rückgängig</span><kbd>⌘/Ctrl Z</kbd><span>Wiederholen</span><kbd>⇧ ⌘/Ctrl Z</kbd><span>Export</span><kbd>⌘/Ctrl E</kbd><span>Speichern</span><kbd>⌘/Ctrl S</kbd>
+    </div>
+  </dialog>
+
+  <div class="drop-overlay" id="dropOverlay"><div><strong>Datei loslassen</strong><span>OBJ, Bilder, Projekte oder Paletten</span></div></div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="./src/editor-core.js"></script>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
