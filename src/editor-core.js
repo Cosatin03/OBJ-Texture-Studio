@@ -640,7 +640,7 @@ tex.addEventListener("pointercancel",finishUV);
 tex.addEventListener("pointerleave",()=>{textPreviewUV=null;renderUVOverlay()});
 
 /* ---------- WebGL ---------- */
-const glc=$("#glcanvas"),gl=glc.getContext("webgl",{alpha:false,antialias:true});
+const glc=$("#glcanvas"),gl=glc.getContext("webgl",{alpha:false,antialias:true,preserveDrawingBuffer:true});
 if(!gl){status("WebGL ist in diesem Browser nicht verfügbar.");return}
 
 const VS=`
