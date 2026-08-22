@@ -197,6 +197,7 @@ function paintAiPreview() {
   if (document.body.dataset.view !== "ai") return;
   const overlay = studio.overlay;
   const ctx = overlay.getContext("2d");
+  if (!$("#aiIncludeUV").checked) ctx.clearRect(0, 0, overlay.width, overlay.height);
   if ($("#aiLabels").checked) {
     ctx.save();
     ctx.globalCompositeOperation = "destination-over";
@@ -204,7 +205,6 @@ function paintAiPreview() {
     ctx.drawImage(createIslandMask(overlay.width, true), 0, 0);
     ctx.restore();
   }
-  if (!$("#aiIncludeUV").checked) ctx.clearRect(0, 0, overlay.width, overlay.height);
   studio.tex.style.opacity = $("#aiIncludeTexture").checked ? "1" : "0";
 }
 
