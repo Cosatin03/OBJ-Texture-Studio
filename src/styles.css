@@ -46,7 +46,7 @@ body[data-view=code] .code-modeler-pane{display:block}
 .modeler-field{display:grid;gap:6px;min-height:0}.modeler-field>span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.modeler-field code{font:9px DM Mono;color:#b9c2d0}.modeler-field select,.modeler-field input{width:100%}
 .modeler-prompt-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}.modeler-prompt-row .button{white-space:nowrap}
 .modeler-code-field{flex:1}.modeler-code-field textarea{height:100%;min-height:260px;resize:none;padding:12px;background:#080b10;border-color:#202735;color:#73e2ad;font:11px/1.55 DM Mono,monospace;tab-size:2}
-.modeler-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}.modeler-actions .button{min-height:38px;padding:0 8px;font-size:10px}
+.modeler-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.modeler-actions .button{min-height:38px;padding:0 8px;font-size:10px}
 .modeler-hint{margin:0;color:var(--muted);font-size:9px;line-height:1.55}
 .modeler-preview{position:relative;min-width:0;min-height:0;background:radial-gradient(circle at 50% 38%,#192333 0,#0b1018 48%,#07090d 100%)}#modelerCanvas{position:absolute;inset:0}#modelerCanvas canvas{width:100%;height:100%;display:block}
 .modeler-stats{position:absolute;top:12px;right:12px;display:flex;gap:6px}.modeler-stats span,.modeler-help{padding:6px 8px;border:1px solid var(--line);background:rgba(10,14,20,.84);backdrop-filter:blur(10px);border-radius:7px;color:var(--muted);font:9px DM Mono}.modeler-stats b{color:var(--blue);margin-left:4px}.modeler-help{position:absolute;left:12px;bottom:12px}
