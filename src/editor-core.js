@@ -1070,6 +1070,43 @@ async function exportRBXM(name="roblox_model",meshAssetValue,textureAssetValue){
     throw error;
   }
 }
+async function exportNativeRBXM(name="roblox_model",partDescriptors=[]){
+  if(!partDescriptors.length)throw new Error("Keine unterstützten Roblox-Primitives gefunden.");
+  status("Native RBXM ohne Asset-IDs wird erzeugt …");
+  try{
+    const rbxm=await loadRbxmWriter();
+    const {RobloxFile,Model,Part,Vector3,CFrame,Color3,Material,PartType}=rbxm;
+    const file=new RobloxFile();
+    const model=new Model();
+    model.Name=safeAssetName(name);
+    file.AddRoot(model);
+    let primaryPart=null;
+    partDescriptors.forEach((source,index)=>{
+      const part=new Part();
+      part.Name=source.name||`Part_${String(index+1).padStart(3,"0")}`;
+      part.Parent=model;
+      part.Shape=PartType[source.shape]||PartType.Block;
+      part.Size=new Vector3(...source.size.map(value=>Math.max(.001,Math.abs(value))));
+      part.CFrame=new CFrame(new Vector3(...source.position),source.orientation);
+      part.Color3uint8=new Color3(...source.color.map(value=>clamp(value,0,1)));
+      part.Material=Material[source.material]||Material.SmoothPlastic;
+      part.Transparency=clamp(source.transparency||0,0,1);
+      part.Anchored=true;
+      part.CanCollide=source.canCollide!==false;
+      part.CastShadow=true;
+      if(!primaryPart)primaryPart=part;
+    });
+    model.PrimaryPart=primaryPart;
+    const bytes=file.WriteToBuffer();
+    const fileName=`${safeAssetName(name)}.rbxm`;
+    downloadBlob(fileName,new Blob([bytes],{type:"application/octet-stream"}));
+    status(`Native RBXM exportiert: ${fileName} · ${partDescriptors.length} Roblox-Parts · keine Asset-IDs nötig.`);
+    return fileName;
+  }catch(error){
+    status(`Nativer RBXM-Exportfehler: ${error.message}`);
+    throw error;
+  }
+}
 
 function loadTextureDataUrl(dataUrl,{push=true}={}){
   return new Promise((resolve,reject)=>{
@@ -1172,6 +1209,7 @@ window.TextureStudio={
   exportPackage,
   exportGLB,
   exportRBXM,
+  exportNativeRBXM,
   downloadBlob,
   renderUVOverlay,
   uploadTexture,
