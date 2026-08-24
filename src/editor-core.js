@@ -1002,6 +1002,66 @@ function exportGLB(name="roblox_model"){
     }catch(error){status(`GLB-Exportfehler: ${error.message}`);reject(error)}
   });
 }
+function robloxAssetId(value){
+  const raw=String(value||"").trim();
+  const direct=raw.match(/^\d+$/);
+  const embedded=raw.match(/(?:rbxassetid:\/\/|\/library\/|\/store\/asset\/|[?&]id=)(\d+)/i);
+  const id=(direct?direct[0]:embedded?.[1])||"";
+  return id&&!/^0+$/.test(id)?id:null;
+}
+function meshSize(){
+  if(!mesh?.rawPos?.length)return[1,1,1];
+  let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+  for(let i=0;i<mesh.rawPos.length;i+=3){
+    const x=mesh.rawPos[i],y=mesh.rawPos[i+1],z=mesh.rawPos[i+2];
+    minX=Math.min(minX,x);minY=Math.min(minY,y);minZ=Math.min(minZ,z);
+    maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);maxZ=Math.max(maxZ,z);
+  }
+  return[Math.max(.001,maxX-minX),Math.max(.001,maxY-minY),Math.max(.001,maxZ-minZ)];
+}
+async function exportRBXM(name="roblox_model",meshAssetValue,textureAssetValue){
+  if(!mesh)throw new Error("Bitte zuerst ein OBJ laden oder ein Code-Modell texturieren.");
+  const meshId=robloxAssetId(meshAssetValue),textureId=robloxAssetId(textureAssetValue);
+  if(!meshId||!textureId)throw new Error("Bitte gültige Roblox Mesh- und Texture-Asset-IDs eingeben.");
+  status("RBXM wird binär erzeugt …");
+  try{
+    const rbxm=await import("https://esm.sh/rbxm-parser@1.1.4?bundle");
+    const {RobloxFile,Model,MeshPart,SurfaceAppearance,Vector3,Color3}=rbxm;
+    if(!RobloxFile||!MeshPart)throw new Error("RBXM-Modul ist unvollständig.");
+    const file=new RobloxFile();
+    const model=new Model();
+    model.Name=safeAssetName(name);
+    file.AddRoot(model);
+
+    const part=new MeshPart();
+    part.Name="GeneratedMesh";
+    part.Parent=model;
+    part.MeshId=`rbxassetid://${meshId}`;
+    part.TextureID=`rbxassetid://${textureId}`;
+    const [sx,sy,sz]=meshSize();
+    part.Size=new Vector3(sx,sy,sz);
+    part.InitialSize=new Vector3(sx,sy,sz);
+    part.Anchored=true;
+    part.DoubleSided=true;
+    part.Color3uint8=new Color3(1,1,1);
+    model.PrimaryPart=part;
+
+    const surface=new SurfaceAppearance();
+    surface.Name="TextureAtlas";
+    surface.ColorMap=`rbxassetid://${textureId}`;
+    surface.Parent=part;
+
+    const buffer=file.WriteToBuffer();
+    const bytes=buffer instanceof Uint8Array?buffer:new Uint8Array(buffer);
+    const fileName=`${safeAssetName(name)}.rbxm`;
+    downloadBlob(fileName,new Blob([bytes],{type:"application/octet-stream"}));
+    status(`Echte RBXM exportiert: ${fileName} · MeshPart und Texturemap sind über Roblox-Asset-IDs verbunden.`);
+    return fileName;
+  }catch(error){
+    status(`RBXM-Exportfehler: ${error.message}`);
+    throw error;
+  }
+}
 
 function loadTextureDataUrl(dataUrl,{push=true}={}){
   return new Promise((resolve,reject)=>{
@@ -1023,6 +1083,7 @@ function loadTextureDataUrl(dataUrl,{push=true}={}){
 }
 $("#savePng").onclick=()=>tex.toBlob(b=>downloadBlob("texture.png",b),"image/png");
 $("#saveGlb").onclick=()=>exportGLB(currentObjName||"roblox_model").catch(()=>{});
+$("#saveRbxm").onclick=()=>exportRBXM(currentObjName||"roblox_model",$("#rbxmMeshId").value,$("#rbxmTextureId").value).catch(error=>alert(error.message));
 $("#saveMtl").onclick=()=>downloadBlob("material.mtl",new Blob([mtlText()],{type:"text/plain"}));
 $("#saveObj").onclick=()=>{
   const s=objText();
@@ -1102,6 +1163,7 @@ window.TextureStudio={
   mtlText,
   exportPackage,
   exportGLB,
+  exportRBXM,
   downloadBlob,
   renderUVOverlay,
   uploadTexture,
