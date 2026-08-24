@@ -342,18 +342,23 @@ function edgeKey(a,b,eps){
   return ka<kb ? ka+"__"+kb : kb+"__"+ka;
 }
 function parseOBJ(text){
-  const V=[],VN=[],tris=[];
+  const V=[],VN=[],tris=[],triMaterials=[];
+  let currentMaterial="";
   for(const raw of text.split(/\r?\n/)){
     const line=raw.trim();if(!line||line.startsWith("#"))continue;
     const p=line.split(/\s+/);
     if(p[0]==="v"&&p.length>=4)V.push([+p[1],+p[2],+p[3]]);
     else if(p[0]==="vn"&&p.length>=4)VN.push(norm([+p[1],+p[2],+p[3]]));
+    else if(p[0]==="usemtl")currentMaterial=p.slice(1).join(" ");
     else if(p[0]==="f"&&p.length>=4){
       const refs=p.slice(1).map(tok=>{
         const q=tok.split("/"),idx=(s,n)=>{if(!s)return null;const i=parseInt(s,10);return i<0?n+i:i-1};
         return{v:idx(q[0],V.length),vn:idx(q[2],VN.length)}
       });
-      for(let i=1;i<refs.length-1;i++)tris.push([refs[0],refs[i],refs[i+1]]);
+      for(let i=1;i<refs.length-1;i++){
+        tris.push([refs[0],refs[i],refs[i+1]]);
+        triMaterials.push(currentMaterial);
+      }
     }
   }
   if(!V.length||!tris.length)throw new Error("Keine brauchbaren Vertices/Faces gefunden.");
@@ -387,6 +392,7 @@ function parseOBJ(text){
     triNormals,
     triCenters,
     triRawVerts,
+    triMaterials,
     modelExtent:extent,
     triSurface:new Int32Array(tris.length).fill(-1),
     surfaces:[]
@@ -442,7 +448,8 @@ function buildFaceIslands(){
         if(visited[n]) continue;
         const N=canonicalNormal(mesh.triNormals[n]);
         const maxPlaneError=Math.max(...mesh.triRawVerts[n].map(p=>Math.abs(dot(refN,sub(p,refPoint)))));
-        if(dot(refN,N) >= NORMAL_DOT_THRESHOLD && maxPlaneError <= PLANE_DIST_THRESHOLD){
+        const sameMaterial=mesh.triMaterials[n]===mesh.triMaterials[start];
+        if(sameMaterial&&dot(refN,N) >= NORMAL_DOT_THRESHOLD && maxPlaneError <= PLANE_DIST_THRESHOLD){
           visited[n]=1;
           queue.push(n);
         }
@@ -538,6 +545,38 @@ function packProjectedIslands(islands){
   renderUVOverlay();
   updateUVModeBadge();
 }
+function colorFromMaterialName(name){
+  const match=String(name||"").match(/TMS_COLOR_([0-9a-f]{6})/i);
+  return match?`#${match[1]}`:"#94a3b8";
+}
+function bakeMaterialColors(){
+  if(!mesh)return;
+  tctx.save();
+  tctx.setTransform(1,0,0,1,0,0);
+  tctx.globalCompositeOperation="source-over";
+  tctx.globalAlpha=1;
+  tctx.clearRect(0,0,tex.width,tex.height);
+  tctx.lineJoin="round";
+  tctx.lineWidth=Math.max(2,tex.width/512);
+  for(let tri=0;tri<mesh.triangles;tri++){
+    const color=colorFromMaterialName(mesh.triMaterials[tri]);
+    tctx.fillStyle=color;
+    tctx.strokeStyle=color;
+    tctx.beginPath();
+    for(let corner=0;corner<3;corner++){
+      const idx=tri*3+corner;
+      const x=mesh.uv[idx*2]*tex.width,y=mesh.uv[idx*2+1]*tex.height;
+      corner?tctx.lineTo(x,y):tctx.moveTo(x,y);
+    }
+    tctx.closePath();
+    tctx.fill();
+    tctx.stroke();
+  }
+  tctx.restore();
+  uploadTexture();
+  renderUVOverlay();
+  announceChange({type:"texture",source:"material-bake"});
+}
 function rebuildFaceIslandUVs(){
   if(!mesh){status("Bitte zuerst ein OBJ laden.");return;}
   const islands = buildFaceIslands();
@@ -546,13 +585,14 @@ function rebuildFaceIslandUVs(){
 }
 $("#repairFaceIslandsBtn").onclick=rebuildFaceIslandUVs;
 
-async function loadOBJText(text,name="model.obj"){
+async function loadOBJText(text,name="model.obj",{colorFromMaterials=false}={}){
   try{
     mesh=parseOBJ(text);
     currentObjText=text;
     currentObjName=name;
     const islands=buildFaceIslands();
     packProjectedIslands(islands);
+    if(colorFromMaterials)bakeMaterialColors();
     resetCamera();
     renderUVOverlay();
     updateUVModeBadge();
