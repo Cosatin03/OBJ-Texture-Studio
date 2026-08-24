@@ -239,15 +239,82 @@ async function exportGlb(){
     studio.status("Roblox-GLB exportiert: Modell, UV-Atlas und Texturemap sind in einer Datei eingebettet.");
   }catch(error){studio.status(`Roblox-Export fehlgeschlagen: ${error.message}`)}
 }
-async function prepareRbxm(){
+function sampledMaterialColor(material){
+  const image=material?.map?.image;
+  if(image?.getContext){
+    try{
+      const data=image.getContext("2d").getImageData(0,0,image.width,image.height).data;
+      let r=0,g=0,b=0,count=0;
+      const stride=Math.max(4,Math.floor(data.length/4096/4)*4);
+      for(let i=0;i<data.length;i+=stride){r+=data[i];g+=data[i+1];b+=data[i+2];count++}
+      if(count)return[r/(count*255),g/(count*255),b/(count*255)];
+    }catch(_error){}
+  }
+  const color=material?.color||new THREE.Color(0xffffff);
+  return[color.r,color.g,color.b];
+}
+function robloxMaterial(material){
+  if(material?.bumpMap)return"Cobblestone";
+  if(material?.transparent&&material.opacity<.9)return"Glass";
+  if((material?.metalness||0)>.45)return"Metal";
+  return"SmoothPlastic";
+}
+function robloxOrientation(quaternion){
+  const e=new THREE.Matrix4().makeRotationFromQuaternion(quaternion).elements;
+  return[e[0],e[4],-e[8],e[1],e[5],-e[9],-e[2],-e[6],e[10]];
+}
+function nativePartDescriptors(){
+  const descriptors=[];
+  const unsupported=[];
+  modelGroup.updateMatrixWorld(true);
+  modelGroup.traverse(child=>{
+    if(!child.isMesh)return;
+    const geometry=child.geometry;
+    geometry.computeBoundingBox();
+    const bounds=geometry.boundingBox.getSize(new THREE.Vector3());
+    const position=new THREE.Vector3(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3();
+    child.matrixWorld.decompose(position,quaternion,scale);
+    scale.set(Math.abs(scale.x),Math.abs(scale.y),Math.abs(scale.z));
+    let shape="Block",size=[bounds.x*scale.x,bounds.y*scale.y,bounds.z*scale.z];
+    const correction=new THREE.Quaternion();
+
+    if(geometry.type==="CylinderGeometry"){
+      const params=geometry.parameters||{};
+      if(Math.abs((params.radiusTop||0)-(params.radiusBottom||0))>.0001){unsupported.push(geometry.type);return}
+      shape="Cylinder";
+      const dimensions=[bounds.x,bounds.y,bounds.z];
+      const axis=dimensions.indexOf(Math.min(...dimensions));
+      if(axis===1){
+        correction.setFromAxisAngle(new THREE.Vector3(0,0,1),Math.PI/2);
+        size=[bounds.y*scale.y,bounds.x*scale.x,bounds.z*scale.z];
+      }else if(axis===2){
+        correction.setFromAxisAngle(new THREE.Vector3(0,1,0),-Math.PI/2);
+        size=[bounds.z*scale.z,bounds.y*scale.y,bounds.x*scale.x];
+      }
+    }else if(geometry.type==="SphereGeometry"){
+      shape="Ball";
+    }else if(geometry.type!=="BoxGeometry"){
+      unsupported.push(geometry.type);return;
+    }
+
+    const material=Array.isArray(child.material)?child.material[0]:child.material;
+    const finalRotation=quaternion.clone().multiply(correction);
+    descriptors.push({
+      name:child.name||`${shape}_${String(descriptors.length+1).padStart(3,"0")}`,
+      shape,size,position:[position.x,position.y,-position.z],
+      orientation:robloxOrientation(finalRotation),
+      color:sampledMaterialColor(material),material:robloxMaterial(material),
+      transparency:1-(material?.opacity??1),canCollide:true
+    });
+  });
+  if(unsupported.length)throw new Error(`Nicht als Roblox-Part unterstützt: ${[...new Set(unsupported)].join(", ")}.`);
+  return descriptors;
+}
+async function exportNativeRbxm(){
   try{
-    const obj=generatedObj();
-    await studio.loadOBJText(obj,outputName(),{colorFromMaterials:true});
-    const drawer=document.getElementById("exportDrawer");
-    if(!drawer?.classList.contains("open"))document.getElementById("exportToggle")?.click();
-    document.getElementById("rbxmMeshId")?.focus();
-    studio.status("RBXM bereit: GLB und PNG in Roblox hochladen, danach Mesh- und Texture-Asset-ID einsetzen und 'Echte Roblox RBXM' klicken.");
-  }catch(error){studio.status(`RBXM-Vorbereitung fehlgeschlagen: ${error.message}`)}
+    const parts=nativePartDescriptors();
+    await studio.exportNativeRBXM(`${presetSelect.value||"code-model"}_native`,parts);
+  }catch(error){studio.status(`Nativer RBXM-Export fehlgeschlagen: ${error.message}`);alert(error.message)}
 }
 function resize(){
   const width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight);
@@ -259,7 +326,7 @@ presetSelect.addEventListener("change",()=>loadPreset(presetSelect.value));
 $("#runModelCode").addEventListener("click",runCode);
 $("#promptToCode").addEventListener("click",applyPrompt);
 $("#sendModelToPaint").addEventListener("click",sendToPaint);
-$("#exportGeneratedRbxm").addEventListener("click",prepareRbxm);
+$("#exportGeneratedRbxm").addEventListener("click",exportNativeRbxm);
 $("#exportGeneratedGlb").addEventListener("click",exportGlb);
 $("#exportGeneratedObj").addEventListener("click",exportObj);
 editor.addEventListener("keydown",event=>{
