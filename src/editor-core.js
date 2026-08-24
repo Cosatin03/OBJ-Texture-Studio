@@ -1019,13 +1019,21 @@ function meshSize(){
   }
   return[Math.max(.001,maxX-minX),Math.max(.001,maxY-minY),Math.max(.001,maxZ-minZ)];
 }
+let rbxmWriterPromise=null;
+function loadRbxmWriter(){
+  if(!rbxmWriterPromise)rbxmWriterPromise=import("./vendor/rbxm-parser.mjs").catch(error=>{
+    rbxmWriterPromise=null;
+    throw error;
+  });
+  return rbxmWriterPromise;
+}
 async function exportRBXM(name="roblox_model",meshAssetValue,textureAssetValue){
   if(!mesh)throw new Error("Bitte zuerst ein OBJ laden oder ein Code-Modell texturieren.");
   const meshId=robloxAssetId(meshAssetValue),textureId=robloxAssetId(textureAssetValue);
   if(!meshId||!textureId)throw new Error("Bitte gültige Roblox Mesh- und Texture-Asset-IDs eingeben.");
   status("RBXM wird binär erzeugt …");
   try{
-    const rbxm=await import("https://esm.sh/rbxm-parser@1.1.4?bundle");
+    const rbxm=await loadRbxmWriter();
     const {RobloxFile,Model,MeshPart,SurfaceAppearance,Vector3,Color3}=rbxm;
     if(!RobloxFile||!MeshPart)throw new Error("RBXM-Modul ist unvollständig.");
     const file=new RobloxFile();
