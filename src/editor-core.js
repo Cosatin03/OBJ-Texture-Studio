@@ -928,22 +928,37 @@ glc.addEventListener("pointerleave",()=>{textPreview3D=null;renderUVOverlay()});
 glc.addEventListener("wheel",e=>{e.preventDefault();zoom=clamp(zoom*Math.exp(e.deltaY*.001),1.45,12)},{passive:false});
 
 /* ---------- Export ---------- */
-function mtlText(){return`newmtl Material_Texture
+function mtlText(textureFile="texture.png"){return`newmtl Material_Texture
 Ka 1.000000 1.000000 1.000000
 Kd 1.000000 1.000000 1.000000
 Ks 0.000000 0.000000 0.000000
 d 1.0
 illum 1
-map_Kd texture.png
+map_Kd ${textureFile}
 `}
-function objText(){
+function objText(materialFile="material.mtl"){
   if(!mesh)return null;
-  let s="# Exported by OBJ Texture Studio Pro Surface Atlas\nmtllib material.mtl\nusemtl Material_Texture\n";
+  let s=`# Exported by OBJ Texture Studio Pro Surface Atlas\nmtllib ${materialFile}\nusemtl Material_Texture\n`;
   for(let i=0;i<mesh.count;i++)s+=`v ${mesh.rawPos[i*3]} ${mesh.rawPos[i*3+1]} ${mesh.rawPos[i*3+2]}\n`;
   for(let i=0;i<mesh.count;i++)s+=`vt ${mesh.uv[i*2]} ${1-mesh.uv[i*2+1]}\n`;
   for(let i=0;i<mesh.count;i++)s+=`vn ${mesh.nor[i*3]} ${mesh.nor[i*3+1]} ${mesh.nor[i*3+2]}\n`;
   for(let i=0;i<mesh.count;i+=3){const a=i+1,b=i+2,c=i+3;s+=`f ${a}/${a}/${a} ${b}/${b}/${b} ${c}/${c}/${c}\n`}
   return s;
+}
+function safeAssetName(name="textured_model"){
+  return String(name).replace(/\.obj$/i,"").replace(/[^a-z0-9_-]+/gi,"_").replace(/^_+|_+$/g,"")||"textured_model";
+}
+function exportPackage(name="textured_model"){
+  if(!mesh){status("Bitte zuerst ein OBJ laden.");return false}
+  const base=safeAssetName(name);
+  const textureFile=`${base}_texture.png`;
+  const materialFile=`${base}.mtl`;
+  const objFile=`${base}.obj`;
+  tex.toBlob(blob=>downloadBlob(textureFile,blob),"image/png");
+  setTimeout(()=>downloadBlob(materialFile,new Blob([mtlText(textureFile)],{type:"text/plain"})),160);
+  setTimeout(()=>downloadBlob(objFile,new Blob([objText(materialFile)],{type:"text/plain"})),320);
+  status(`Export gestartet: ${objFile} + ${materialFile} + ${textureFile}.`);
+  return true;
 }
 
 function loadTextureDataUrl(dataUrl,{push=true}={}){
@@ -1042,6 +1057,7 @@ window.TextureStudio={
   loadTextureDataUrl,
   objText,
   mtlText,
+  exportPackage,
   downloadBlob,
   renderUVOverlay,
   uploadTexture,
