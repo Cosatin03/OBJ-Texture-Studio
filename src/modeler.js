@@ -239,6 +239,16 @@ async function exportGlb(){
     studio.status("Roblox-GLB exportiert: Modell, UV-Atlas und Texturemap sind in einer Datei eingebettet.");
   }catch(error){studio.status(`Roblox-Export fehlgeschlagen: ${error.message}`)}
 }
+async function prepareRbxm(){
+  try{
+    const obj=generatedObj();
+    await studio.loadOBJText(obj,outputName(),{colorFromMaterials:true});
+    const drawer=document.getElementById("exportDrawer");
+    if(!drawer?.classList.contains("open"))document.getElementById("exportToggle")?.click();
+    document.getElementById("rbxmMeshId")?.focus();
+    studio.status("RBXM bereit: GLB und PNG in Roblox hochladen, danach Mesh- und Texture-Asset-ID einsetzen und 'Echte Roblox RBXM' klicken.");
+  }catch(error){studio.status(`RBXM-Vorbereitung fehlgeschlagen: ${error.message}`)}
+}
 function resize(){
   const width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight);
   renderer.setSize(width,height,false);
@@ -249,6 +259,7 @@ presetSelect.addEventListener("change",()=>loadPreset(presetSelect.value));
 $("#runModelCode").addEventListener("click",runCode);
 $("#promptToCode").addEventListener("click",applyPrompt);
 $("#sendModelToPaint").addEventListener("click",sendToPaint);
+$("#exportGeneratedRbxm").addEventListener("click",prepareRbxm);
 $("#exportGeneratedGlb").addEventListener("click",exportGlb);
 $("#exportGeneratedObj").addEventListener("click",exportObj);
 editor.addEventListener("keydown",event=>{
