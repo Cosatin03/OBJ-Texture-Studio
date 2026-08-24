@@ -195,9 +195,10 @@
               <div class="modeler-actions">
                 <button class="button accent" id="runModelCode">▶ Live rendern</button>
                 <button class="button primary" id="sendModelToPaint">→ Texturieren</button>
+                <button class="button primary" id="exportGeneratedGlb">Roblox GLB exportieren</button>
                 <button class="button" id="exportGeneratedObj">OBJ + Textur exportieren</button>
               </div>
-              <p class="modeler-hint">Materialfarben werden automatisch in den UV-Atlas gebacken. Der Paketexport lädt OBJ + MTL + PNG herunter — alle drei Dateien müssen im selben Ordner bleiben.</p>
+              <p class="modeler-hint">Für Roblox: GLB verwenden — Mesh, UVs und die aktuelle PNG-Texturemap stecken gemeinsam in einer Datei. OBJ + MTL + PNG bleibt als universeller Paketexport verfügbar.</p>
             </aside>
             <div class="modeler-preview">
               <div id="modelerCanvas"></div>
@@ -229,6 +230,7 @@
       </section>
       <section class="export-section">
         <h3>3D-Paket</h3>
+        <button class="export-card featured" id="saveGlb"><span>RBX</span><div><b>Roblox GLB</b><small>Mesh + UVs + Texturemap eingebettet</small></div><em>1 Datei</em></button>
         <button class="export-card" id="saveAll"><span>3D</span><div><b>Komplettes OBJ-Paket</b><small>OBJ + MTL + PNG</small></div><em>3 Dateien</em></button>
         <div class="mini-export-grid"><button id="saveObj">OBJ</button><button id="saveMtl">MTL</button><button id="savePng">PNG</button></div>
       </section>
@@ -256,6 +258,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/OBJExporter.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="./src/editor-core.js"></script>
   <script type="module" src="./src/app.js"></script>
   <script src="./src/modeler.js"></script>
