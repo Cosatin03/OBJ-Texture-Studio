@@ -960,6 +960,48 @@ function exportPackage(name="textured_model"){
   status(`Export gestartet: ${objFile} + ${materialFile} + ${textureFile}.`);
   return true;
 }
+function exportGLB(name="roblox_model"){
+  return new Promise((resolve,reject)=>{
+    if(!mesh){status("Bitte zuerst ein OBJ laden.");reject(new Error("Kein Modell geladen."));return}
+    if(!window.THREE||!THREE.GLTFExporter){
+      const error=new Error("GLB-Exporter konnte nicht geladen werden.");
+      status(error.message);reject(error);return;
+    }
+    try{
+      const geometry=new THREE.BufferGeometry();
+      geometry.setAttribute("position",new THREE.BufferAttribute(new Float32Array(mesh.rawPos),3));
+      geometry.setAttribute("normal",new THREE.BufferAttribute(new Float32Array(mesh.nor),3));
+      geometry.setAttribute("uv",new THREE.BufferAttribute(new Float32Array(mesh.uv),2));
+      geometry.computeBoundingBox();
+      geometry.computeBoundingSphere();
+
+      const texture=new THREE.CanvasTexture(tex);
+      texture.flipY=false;
+      texture.encoding=THREE.sRGBEncoding;
+      texture.needsUpdate=true;
+      texture.name="TextureMap_Atlas";
+      const material=new THREE.MeshStandardMaterial({
+        name:"TextureMap_Material",map:texture,color:0xffffff,metalness:0,roughness:1,side:THREE.DoubleSide
+      });
+      const exportMesh=new THREE.Mesh(geometry,material);
+      exportMesh.name=safeAssetName(name);
+      const exportScene=new THREE.Scene();
+      exportScene.add(exportMesh);
+      const cleanup=()=>{geometry.dispose();material.dispose();texture.dispose()};
+
+      new THREE.GLTFExporter().parse(exportScene,result=>{
+        if(!(result instanceof ArrayBuffer)){
+          cleanup();reject(new Error("GLB konnte nicht binär erzeugt werden."));return;
+        }
+        const fileName=`${safeAssetName(name)}.glb`;
+        downloadBlob(fileName,new Blob([result],{type:"model/gltf-binary"}));
+        cleanup();
+        status(`Roblox-GLB exportiert: ${fileName} · Texturemap ist eingebettet.`);
+        resolve(fileName);
+      },{binary:true,embedImages:true,onlyVisible:true,truncateDrawRange:true});
+    }catch(error){status(`GLB-Exportfehler: ${error.message}`);reject(error)}
+  });
+}
 
 function loadTextureDataUrl(dataUrl,{push=true}={}){
   return new Promise((resolve,reject)=>{
@@ -980,6 +1022,7 @@ function loadTextureDataUrl(dataUrl,{push=true}={}){
   });
 }
 $("#savePng").onclick=()=>tex.toBlob(b=>downloadBlob("texture.png",b),"image/png");
+$("#saveGlb").onclick=()=>exportGLB(currentObjName||"roblox_model").catch(()=>{});
 $("#saveMtl").onclick=()=>downloadBlob("material.mtl",new Blob([mtlText()],{type:"text/plain"}));
 $("#saveObj").onclick=()=>{
   const s=objText();
@@ -1058,6 +1101,7 @@ window.TextureStudio={
   objText,
   mtlText,
   exportPackage,
+  exportGLB,
   downloadBlob,
   renderUVOverlay,
   uploadTexture,
