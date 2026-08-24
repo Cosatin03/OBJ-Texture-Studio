@@ -231,6 +231,14 @@ async function exportObj(){
     studio.status("Texturiertes Code-Modell exportiert: OBJ + MTL + PNG. Alle drei Dateien zusammen lassen.");
   }catch(error){studio.status(`Export fehlgeschlagen: ${error.message}`)}
 }
+async function exportGlb(){
+  try{
+    const obj=generatedObj();
+    await studio.loadOBJText(obj,outputName(),{colorFromMaterials:true});
+    await studio.exportGLB(`${presetSelect.value||"code-model"}_roblox`);
+    studio.status("Roblox-GLB exportiert: Modell, UV-Atlas und Texturemap sind in einer Datei eingebettet.");
+  }catch(error){studio.status(`Roblox-Export fehlgeschlagen: ${error.message}`)}
+}
 function resize(){
   const width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight);
   renderer.setSize(width,height,false);
@@ -241,6 +249,7 @@ presetSelect.addEventListener("change",()=>loadPreset(presetSelect.value));
 $("#runModelCode").addEventListener("click",runCode);
 $("#promptToCode").addEventListener("click",applyPrompt);
 $("#sendModelToPaint").addEventListener("click",sendToPaint);
+$("#exportGeneratedGlb").addEventListener("click",exportGlb);
 $("#exportGeneratedObj").addEventListener("click",exportObj);
 editor.addEventListener("keydown",event=>{
   if(event.key==="Tab"){
