@@ -131,6 +131,7 @@
           <button data-view="split" class="active">Geteilt</button>
           <button data-view="model">3D</button>
           <button data-view="texture">Texturemap</button>
+          <button data-view="code">Code-Modellierer</button>
           <button data-view="ai">AI Prep</button>
         </div>
         <div class="view-tools">
@@ -167,6 +168,42 @@
             <label class="check-row compact"><input id="aiIncludeUV" type="checkbox" checked><span>UV-Linien</span></label>
             <label class="check-row compact"><input id="aiLabels" type="checkbox"><span>Insel-Farben</span></label>
             <button class="button accent" id="exportAiSheet">AI Sheet exportieren</button>
+          </div>
+        </section>
+
+        <section id="modelerPane" class="pane code-modeler-pane" aria-label="Code-Modellierer">
+          <div class="modeler-shell">
+            <aside class="modeler-editor-panel">
+              <div class="modeler-heading">
+                <div><span>THREE.JS SCENE BUILDER</span><strong>Code & Prompt Modellierer</strong></div>
+                <span class="modeler-live">LIVE</span>
+              </div>
+              <label class="modeler-field"><span>Preset</span>
+                <select id="modelPreset">
+                  <option value="tank">Sci-Fi Tank / Reaktor</option>
+                  <option value="conveyor">Förderband / Conveyor</option>
+                  <option value="dome">Gewächshaus-Kuppel</option>
+                  <option value="terminal">Control Terminal</option>
+                </select>
+              </label>
+              <label class="modeler-field"><span>AI-/Text-Prompt</span>
+                <div class="modeler-prompt-row"><input id="modelPrompt" placeholder="z. B. Sci-Fi Tank mit Glas und grüner Flüssigkeit"><button class="button" id="promptToCode">Prompt → Code</button></div>
+              </label>
+              <label class="modeler-field modeler-code-field"><span>JavaScript · Objekte zu <code>modelGroup</code> hinzufügen</span>
+                <textarea id="modelCode" spellcheck="false" aria-label="Three.js Modellcode"></textarea>
+              </label>
+              <div class="modeler-actions">
+                <button class="button accent" id="runModelCode">▶ Live rendern</button>
+                <button class="button primary" id="sendModelToPaint">→ Texturieren</button>
+                <button class="button" id="exportGeneratedObj">OBJ exportieren</button>
+              </div>
+              <p class="modeler-hint">Materialfarben werden beim Übernehmen automatisch als erste Texturemap gebacken. Danach kannst du malen und über das Export Center OBJ + MTL + PNG ausgeben.</p>
+            </aside>
+            <div class="modeler-preview">
+              <div id="modelerCanvas"></div>
+              <div class="modeler-stats"><span>Meshes <b id="modelerMeshCount">0</b></span><span>Vertices <b id="modelerVertexCount">0</b></span></div>
+              <div class="modeler-help">Orbit: Ziehen · Pan: Rechtsklick · Zoom: Mausrad</div>
+            </div>
           </div>
         </section>
       </div>
@@ -216,7 +253,11 @@
   <div class="drop-overlay" id="dropOverlay"><div><strong>Datei loslassen</strong><span>OBJ, Bilder, Projekte oder Paletten</span></div></div>
   <div class="toast" id="toast" role="status"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/OBJExporter.js"></script>
   <script src="./src/editor-core.js"></script>
   <script type="module" src="./src/app.js"></script>
+  <script src="./src/modeler.js"></script>
 </body>
 </html>
