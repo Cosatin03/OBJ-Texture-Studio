@@ -223,10 +223,12 @@ async function sendToPaint(){
     studio.status("Code-Modell übernommen: UV-Atlas und Material-Texturemap wurden automatisch erstellt.");
   }catch(error){studio.status(`Übernahme fehlgeschlagen: ${error.message}`)}
 }
-function exportObj(){
+async function exportObj(){
   try{
-    studio.downloadBlob(outputName(),new Blob([generatedObj()],{type:"text/plain"}));
-    studio.status("Generiertes OBJ exportiert.");
+    const obj=generatedObj();
+    await studio.loadOBJText(obj,outputName(),{colorFromMaterials:true});
+    studio.exportPackage(`${presetSelect.value||"code-model"}_textured`);
+    studio.status("Texturiertes Code-Modell exportiert: OBJ + MTL + PNG. Alle drei Dateien zusammen lassen.");
   }catch(error){studio.status(`Export fehlgeschlagen: ${error.message}`)}
 }
 function resize(){
