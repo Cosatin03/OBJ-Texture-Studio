@@ -190,14 +190,137 @@ function promptToPreset(prompt){
   if(/terminal|computer|konsole|screen|bildschirm/.test(text))return"terminal";
   return"tank";
 }
-function applyPrompt(){
-  const prompt=$("#modelPrompt").value.trim();
-  if(!prompt){studio.status("Bitte zuerst eine Modellbeschreibung eingeben.");return}
-  const preset=promptToPreset(prompt);
-  presetSelect.value=preset;
-  loadPreset(preset);
-  studio.status(`Prompt-Assistent: passende ${preset}-Vorlage erzeugt. Code kann jetzt angepasst werden.`);
+
+/* ---------- Export-safe AI prompt generator ---------- */
+function exportSafePrompt(description){
+  const presetLabel=presetSelect.options[presetSelect.selectedIndex]?.textContent?.trim()||"Freies Modell";
+  return `Erzeuge vollständigen JavaScript-Code für den THREE.js Code-Modellierer von TextureMap Studio.
+
+MODELLWUNSCH
+${description}
+
+KONTEXT
+- THREE ist bereits als globale Variable vorhanden.
+- scene und modelGroup sind bereits vorhanden.
+- Erzeuge KEINEN Renderer, KEINE Kamera, KEINen eigenen Render-Loop und KEIN HTML.
+- Alle exportierbaren sichtbaren Meshes müssen direkt oder indirekt in modelGroup liegen.
+- Verwende scene.add(...) nicht für Modellteile, die exportiert werden sollen.
+- Passende Stil-Vorlage: ${presetLabel}.
+
+SEHR WICHTIGE FARBE- UND EXPORTREGELN
+1. Jeder sichtbare Mesh braucht ein Material mit einer EXPLIZIT gesetzten material.color. Niemals auf die Three.js-Standardfarbe verlassen.
+2. Bevorzuge THREE.MeshStandardMaterial oder THREE.MeshPhysicalMaterial.
+3. Die TextureMap-Studio OBJ/Texturemap-Pipeline verwendet material.color als sichere Exportfarbe. Deshalb muss die gewünschte Grundfarbe IMMER in color stehen, auch wenn zusätzlich map, emissive, bumpMap, normalMap, roughnessMap oder metalnessMap verwendet werden.
+4. Emissive darf nur Zusatzlicht sein. Nie die sichtbare Hauptfarbe ausschließlich über emissive definieren. Beispiel: color: 0x06b6d4 UND emissive: 0x0891b2.
+5. Eine material.map darf für Details/Preview benutzt werden, aber color darf dabei NICHT versehentlich 0xffffff bleiben, außer das Objekt soll beim Farb-Fallback wirklich weiß sein. Setze color auf eine repräsentative Grundfarbe der Textur.
+6. Wichtige unterschiedliche Farbbereiche, die beim OBJ-/Texturemap-Export erhalten bleiben müssen, als unterschiedliche Materialien oder getrennte Meshes anlegen. Nicht nur Vertex Colors verwenden.
+7. Verwende ShaderMaterial, RawShaderMaterial, NodeMaterial, onBeforeCompile, Postprocessing oder Bildschirm-/CSS-Effekte NICHT als einzige Quelle der Objektfarbe. Diese Farben sind nicht der sichere Exportpfad.
+8. Wenn mehrere Meshes dieselbe Farbe haben, darf dasselbe Material wiederverwendet werden. Wenn sie verschiedene Farben brauchen, NICHT ein gemeinsam verwendetes Material nachträglich umfärben. Stattdessen separate Materialien oder material.clone() verwenden.
+9. Bei Material-Arrays muss JEDES verwendete Material eine explizite color besitzen.
+10. Transparenz nur wenn ausdrücklich nötig. Auch bei transparenten Materialien immer eine passende color setzen. Der Look darf nicht ausschließlich von opacity/transmission abhängen.
+11. Texturen nicht in animate() oder einem Render-Loop neu erzeugen. CanvasTexture/DataTexture nur einmal erstellen, material.map zuweisen und needsUpdate nur bei tatsächlicher Änderung setzen.
+12. Keine zufälligen Farben, die bei jedem Rendern wechseln. Falls Variation gewünscht ist, feste Farbpalette oder deterministischen/gesetzten Seed verwenden.
+13. Kein sichtbares Objekt darf nur über Lichtfarbe, Environment Map, Metalness oder Roughness seine eigentliche Farbe bekommen. Die Basisfarbe gehört in material.color.
+14. Für Schwarz, Rost, Stein, Ziegel, Metall usw. immer einen passenden Grundfarbwert in color setzen; zusätzliche Maps sind nur Detail-Layer.
+15. modelGroup.rotation nicht als Präsentationsdrehung verändern. Modell sauber in seiner natürlichen Orientierung bauen; nur einzelne Bauteile drehen, wenn ihre Geometrie es verlangt.
+
+ROBUSTES MATERIALBEISPIEL
+const rustMat = new THREE.MeshStandardMaterial({
+  color: 0x7a3b24,
+  roughness: 0.92,
+  metalness: 0.35
+});
+
+ROBUSTES TEXTUR-MATERIALBEISPIEL
+const texturedMat = new THREE.MeshStandardMaterial({
+  color: 0x7a3b24, // Export-Fallback, NICHT blind 0xffffff
+  map: myTexture,
+  roughness: 0.9,
+  metalness: 0.25
+});
+
+QUALITÄTSREGELN
+- Keine koplanaren doppelten Flächen und kein Z-Fighting.
+- Keine frei schwebenden Details, außer sie sind ausdrücklich gewünscht.
+- Keine unnötig extrem hohe Polygonzahl.
+- Sinnvolle Mesh-Namen setzen, z. B. body.name = "RustBody".
+- castShadow und receiveShadow können verwendet werden.
+- Das Modell muss nach Ausführung vollständig sichtbar sein.
+
+AUSGABEFORMAT
+- Gib NUR ausführbaren JavaScript-Code aus.
+- Keine Markdown-Codeblöcke.
+- Keine Erklärung vor oder nach dem Code.
+- Alle erzeugten Meshes am Ende zu modelGroup hinzufügen.
+- Prüfe vor der Ausgabe nochmals, dass jedes sichtbare Material eine explizite color besitzt und kein wichtiger Farbbereich nur über Shader, Emissive, Vertex Colors oder eine Texturemap ohne passende Grundfarbe definiert ist.`;
 }
+let exportPromptDialog=null;
+function ensureExportPromptDialog(){
+  if(exportPromptDialog)return exportPromptDialog;
+  const dialog=document.createElement("dialog");
+  dialog.id="exportSafePromptDialog";
+  dialog.style.width="min(820px,92vw)";
+  dialog.style.maxHeight="86vh";
+  dialog.style.padding="0";
+  dialog.style.border="1px solid #343c4b";
+  dialog.style.borderRadius="14px";
+  dialog.style.background="#11151c";
+  dialog.style.color="#f5f6f8";
+  dialog.style.boxShadow="0 24px 90px rgba(0,0,0,.58)";
+  dialog.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #252b37;gap:16px">
+      <div><div style="font-size:9px;color:#ff9a70;letter-spacing:.12em;text-transform:uppercase">Export-Regeln eingebaut</div><strong style="font-size:16px">AI Prompt Generator</strong></div>
+      <button type="button" data-prompt-close style="width:34px;height:34px;border:1px solid #343c4b;border-radius:8px;background:#181d27;color:#fff;cursor:pointer">×</button>
+    </div>
+    <div style="padding:14px 16px;display:grid;gap:10px">
+      <p style="margin:0;color:#9aa4b4;font-size:11px;line-height:1.6">Dieser Prompt zwingt den Code-Generator dazu, exportierbare Grundfarben in <code>material.color</code> zu behalten. Texturen, Emissive und Shader dürfen die sichere Exportfarbe nicht ersetzen.</p>
+      <textarea data-prompt-output readonly spellcheck="false" style="width:100%;height:min(55vh,520px);resize:vertical;background:#0b0e13;color:#e8ebf0;border:1px solid #343c4b;border-radius:10px;padding:12px;font:11px/1.55 DM Mono,monospace"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+        <button type="button" data-prompt-preset style="min-height:34px;padding:0 12px;border:1px solid #343c4b;border-radius:8px;background:#181d27;color:#fff;cursor:pointer">Passende Vorlage laden</button>
+        <button type="button" data-prompt-copy style="min-height:34px;padding:0 12px;border:1px solid #ff6747;border-radius:8px;background:#ff6747;color:#160b08;font-weight:700;cursor:pointer">Prompt kopieren</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector("[data-prompt-close]").addEventListener("click",()=>dialog.close());
+  dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close()});
+  dialog.querySelector("[data-prompt-preset]").addEventListener("click",()=>{
+    const prompt=$("#modelPrompt").value.trim();
+    const preset=promptToPreset(prompt);
+    presetSelect.value=preset;
+    loadPreset(preset);
+    studio.status(`Passende ${preset}-Vorlage geladen. Export-Prompt bleibt unverändert verfügbar.`);
+  });
+  dialog.querySelector("[data-prompt-copy]").addEventListener("click",async()=>{
+    const value=dialog.querySelector("[data-prompt-output]").value;
+    try{
+      await navigator.clipboard.writeText(value);
+      studio.status("Export-sicherer AI-Prompt in die Zwischenablage kopiert.");
+    }catch(_error){
+      const output=dialog.querySelector("[data-prompt-output]");
+      output.focus();
+      output.select();
+      document.execCommand?.("copy");
+      studio.status("Export-sicherer AI-Prompt zum Kopieren markiert.");
+    }
+  });
+  return dialog;
+}
+function applyPrompt(){
+  const description=$("#modelPrompt").value.trim();
+  if(!description){studio.status("Bitte zuerst eine Modellbeschreibung eingeben.");return}
+  const preset=promptToPreset(description);
+  presetSelect.value=preset;
+  const dialog=ensureExportPromptDialog();
+  dialog.querySelector("[data-prompt-output]").value=exportSafePrompt(description);
+  if(typeof dialog.showModal==="function")dialog.showModal();else dialog.setAttribute("open","");
+  studio.status("Export-sicherer AI-Prompt erzeugt: material.color bleibt die verbindliche Farbquelle für den Export.");
+}
+const promptButton=$("#promptToCode");
+if(promptButton){
+  promptButton.textContent="Export-Prompt";
+  promptButton.title="Erzeugt einen AI-Prompt mit sicheren Farb- und Materialregeln für OBJ/GLB-Export";
+}
+
 function markMaterialNames(){
   modelGroup.traverse(child=>{
     if(!child.isMesh)return;
